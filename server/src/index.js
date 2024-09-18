@@ -65,4 +65,30 @@ app.post('/voice', (req, res) => {
   res.send(twiml.toString());
 });
 
+app.post('/hold', (req, res) => {
+  console.log("Call is on hold");
+  const { callSid } = req.body;
+  const twiml = new VoiceResponse();
+  twiml.say("Your call is on hold.");
+
+  // Update the call with the new TwiML
+  client.calls(callSid)
+    .update({ twiml: twiml.toString() })
+    .then(() => res.send('Call on hold'))
+    .catch((error) => res.status(500).send('Error putting call on hold:', error));
+});
+
+app.post('/resume', (req, res) => {
+  console.log("Call Resume");
+  const { callSid } = req.body;
+  const twiml = new VoiceResponse();
+  twiml.say("Resuming your call.");
+
+  // Update the call to resume normal conversation
+  client.calls(callSid)
+    .update({ twiml: twiml.toString() })
+    .then(() => res.send('Call resumed'))
+    .catch((error) => res.status(500).send('Error resuming call:', error));
+});
+
 app.listen(3000, () => console.log('Server listening on port 3000'));
