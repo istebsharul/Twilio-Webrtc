@@ -56,6 +56,22 @@ app.post('/call', (req, res) => {
     .catch((err) => res.status(500).send(err));
 });
 
+app.post('/end-call', async (req, res) => {
+  const { callSid } = req.body;
+
+  if (!callSid) {
+    return res.status(400).send('Call SID is required');
+  }
+
+  try {
+    const call = await client.calls(callSid).update({ status: 'completed' });
+    res.send(`Call with SID: ${callSid} has been ended successfully.`);
+  } catch (error) {
+    console.error('Error ending call:', error.message);
+    res.status(500).send(`Failed to end call: ${error.message}`);
+  }
+});
+
 // TwiML instructions for the call
 app.post('/voice', (req, res) => {
   const twiml = new twilio.twiml.VoiceResponse();

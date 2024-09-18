@@ -88,29 +88,29 @@ const TwilioWebRTC = () => {
   };
 
   const makeCall = () => {
-    if (device) {
-      const phoneNumber = '+917439011473'; // Replace with the phone number you want to call
-      axios
-        .post('http://localhost:3000/call', { phoneNumber })
-        .then(() => {
-          console.log('Outgoing call initiated');
-          setCallInProgress(true);
-          setCallStatus('Calling...');
-        })
-        .catch((error) => {
-          console.error('Error making outgoing call:', error);
-          setCallStatus('Error making call');
-        });
-    } else {
-      console.warn('Device not initialized');
-      setCallStatus('Device not ready');
+    try {
+      if(device){
+        const phoneNumber = '+917439011473';
+
+        const response = axios.post('http://localhost:3000/call',{phoneNumber});
+        console.log(response);
+        setCallInProgress(true);
+        setCallStatus('Calling...');
+      }else{
+        console.warn('Device not initialized');
+        setCallStatus('Device not ready');
+      }
+    } catch (error) {
+      console.error('Error making call',error);
+      setCallStatus('Error making call');
     }
-  };
+  }
 
   const endCall = () => {
     if (device) {
       console.log('Ending call...');
-      device.disconnectAll();
+      const response = device.disconnectAll();
+      console.log(response);
       setCallInProgress(false);
       setCallStatus('Call ended');
     } else {
