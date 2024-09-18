@@ -4,7 +4,9 @@ import axios from 'axios';
 const TwilioWebRTC = () => {
   const [device, setDevice] = useState(null);
   const [incomingConnection, setIncomingConnection] = useState(null);
+  const [outgoingConnection, setOutgoingConnection] = useState(null);
   const [callInProgress, setCallInProgress] = useState(false);
+  const [callType, setCallType] = useState(null); // 'incoming' or 'outgoing'
   const [callStatus, setCallStatus] = useState('Device not ready');
   
   // Load the Twilio Client SDK
@@ -56,10 +58,12 @@ const TwilioWebRTC = () => {
         setCallStatus('Error: ' + error.message);
       });
 
+      // Handle incoming call
       newDevice.on('incoming', (connection) => {
         console.log('Incoming call detected');
         setIncomingConnection(connection);
         setCallStatus('Incoming call...');
+        setCallType('incoming');
       });
 
       setDevice(newDevice);
@@ -76,7 +80,7 @@ const TwilioWebRTC = () => {
       incomingConnection.accept();
       setCallInProgress(true);
       setIncomingConnection(null);
-      setCallStatus('Call in progress');
+      setCallStatus('Call in progress (incoming)');
     }
   };
 
@@ -87,6 +91,7 @@ const TwilioWebRTC = () => {
       incomingConnection.reject();
       setIncomingConnection(null);
       setCallStatus('Call rejected');
+      setCallType(null);
     }
   };
 
@@ -98,7 +103,10 @@ const TwilioWebRTC = () => {
         .post('http://localhost:3000/call', { phoneNumber })
         .then(() => {
           console.log('Outgoing call initiated');
+          const connection = device.connect({ phoneNumber }); // Initiate the call via Twilio
+          setOutgoingConnection(connection);
           setCallInProgress(true);
+          setCallType('outgoing');
           setCallStatus('Calling...');
         })
         .catch((error) => {
@@ -111,16 +119,20 @@ const TwilioWebRTC = () => {
     }
   };
 
-  // End the current call
+  // End the current call (works for both incoming and outgoing)
   const endCall = () => {
-    if (device) {
-      console.log('Ending call...');
-      device.disconnectAll();
-      setCallInProgress(false);
-      setCallStatus('Call ended');
-    } else {
-      console.warn('No active call to end');
+    if (callType === 'incoming' && incomingConnection) {
+      console.log('Ending incoming call...');
+      incomingConnection.disconnect();
+      setIncomingConnection(null);
+    } else if (callType === 'outgoing' && outgoingConnection) {
+      console.log('Ending outgoing call...');
+      outgoingConnection.disconnect();
+      setOutgoingConnection(null);
     }
+    setCallInProgress(false);
+    setCallType(null);
+    setCallStatus('Call ended');
   };
 
   return (
@@ -131,7 +143,7 @@ const TwilioWebRTC = () => {
       <p>Status: {callStatus}</p>
 
       {/* Incoming Call UI */}
-      {incomingConnection && (
+      {callType === 'incoming' && !callInProgress && incomingConnection && (
         <div className="incoming-call">
           <h2>Incoming Call...</h2>
           <button onClick={acceptCall}>Accept</button>
@@ -142,11 +154,11 @@ const TwilioWebRTC = () => {
       {/* Ongoing Call UI */}
       {callInProgress ? (
         <div>
-          <h2>Ongoing Call</h2>
+          <h2>{callType === 'incoming' ? 'Ongoing Incoming Call' : 'Ongoing Outgoing Call'}</h2>
           <button onClick={endCall}>End Call</button>
         </div>
       ) : (
-        <button onClick={makeCall}>Start Call</button>
+        <button onClick={makeCall}>Start Outgoing Call</button>
       )}
     </div>
   );
