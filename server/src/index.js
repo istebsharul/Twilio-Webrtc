@@ -48,28 +48,27 @@ app.post('/call', (req, res) => {
 
   twilioClient.calls
     .create({
-      url: 'https://4bee-203-171-244-100.ngrok-free.app/voice', // URL to TwiML voice instructions
+      url: 'https://7eca-203-171-244-100.ngrok-free.app/voice', // URL to TwiML voice instructions
       to: phoneNumber,
       from: process.env.TWILIO_PHONE_NUMBER, // Your Twilio number
     })
-    .then((call) => res.send(`Call started with SID: ${call.sid}`))
+    .then((call) => {
+      res.send({ message: 'Call started', callSid: call.sid }); // Send callSid in response
+    })
     .catch((err) => res.status(500).send(err));
 });
 
-app.post('/end-call', async (req, res) => {
+app.post('/endCall', (req, res) => {
   const { callSid } = req.body;
 
   if (!callSid) {
     return res.status(400).send('Call SID is required');
   }
 
-  try {
-    const call = await client.calls(callSid).update({ status: 'completed' });
-    res.send(`Call with SID: ${callSid} has been ended successfully.`);
-  } catch (error) {
-    console.error('Error ending call:', error.message);
-    res.status(500).send(`Failed to end call: ${error.message}`);
-  }
+  twilioClient.calls(callSid)
+    .update({ status: 'completed' })
+    .then(call => res.send(`Call with SID ${callSid} has been ended.`))
+    .catch(err => res.status(500).send(err));
 });
 
 // TwiML instructions for the call

@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 const IncomingCall = ({ connection, onAccept, onReject }) => {
   const [callTimer, setCallTimer] = useState(0);
   const [timerInterval, setTimerInterval] = useState(null);
+  const [hold, SetHold] = useState(false);
 
   useEffect(() => {
     if (connection) {
@@ -26,6 +27,13 @@ const IncomingCall = ({ connection, onAccept, onReject }) => {
     <div className="incoming-call">
       <h2>Incoming Call...</h2>
       <p>Timer: {formatTime(callTimer)}</p>
+      {/* {hold ? 
+        <div>
+          <button onClick={handleResume}>Resume Call</button>
+        </div> 
+      : <div>
+          <button onCanPlay={handleHold}>Hold Call</button>
+        </div>} */}
       <button onClick={onAccept}>Accept</button>
       <button onClick={onReject}>Reject</button>
     </div>

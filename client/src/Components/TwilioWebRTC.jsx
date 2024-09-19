@@ -1,13 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import IncomingCall from './IncomingCall';
 import OutgoingCall from './OutgoingCall';
+import Dialpad from './Dialpad'; // Import the Dialpad component
 
 const TwilioWebRTC = () => {
   const [device, setDevice] = useState(null);
   const [incomingConnection, setIncomingConnection] = useState(null);
+  const [currentConnection, setCurrentConnection] = useState(null);
   const [callInProgress, setCallInProgress] = useState(false);
   const [callStatus, setCallStatus] = useState('Device not ready');
+  const [callSid, setCallSid] = useState(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const isOutgoingRef = useRef(false);
 
   useEffect(() => {
     const loadTwilioSdk = () => {
@@ -56,9 +61,22 @@ const TwilioWebRTC = () => {
       });
 
       newDevice.on('incoming', (connection) => {
-        console.log('Incoming call detected');
-        setIncomingConnection(connection);
-        setCallStatus('Incoming call...');
+        const callSid = connection.parameters.CallSid;  // Get the callSid for incoming calls
+        console.log('Incoming callSid:', callSid);
+
+        if (isOutgoingRef.current) {
+          // This is an outgoing call, so accept the connection automatically
+          console.log('Outgoing Call Detected');
+          connection.accept();
+          setCurrentConnection(connection); // Store the active connection
+          setCallStatus('Outgoing call accepted');
+          setCallInProgress(true);
+        } else {
+          // Handle incoming call scenario
+          setIncomingConnection(connection);
+          setCallStatus(`Incoming call... (Call SID: ${callSid})`);
+          setCallSid(callSid);
+        }
       });
 
       setDevice(newDevice);
@@ -68,11 +86,53 @@ const TwilioWebRTC = () => {
     }
   };
 
+  const makeCall = async (phoneNumber) => {
+    try {
+      if (device) {
+        isOutgoingRef.current = true;
+
+        const response = await axios.post('http://localhost:3000/call', { phoneNumber });
+        console.log(response);
+
+        // Store the callSid from the response
+        setCallSid(response.data.callSid);
+        setCallInProgress(true);
+        setCallStatus('Calling...');
+
+      } else {
+        console.warn('Device not initialized');
+        setCallStatus('Device not ready');
+      }
+    } catch (error) {
+      console.error('Error making call', error);
+      setCallStatus('Error making call');
+    }
+  };
+
+  const endCall = async () => {
+    try {
+      if (callSid) {
+        const response = await axios.post('http://localhost:3000/endCall', { callSid });
+        console.log(response.data);
+
+        setCallInProgress(false);
+        setCallStatus('Call ended');
+        setCallSid(null);
+        setCurrentConnection(null);
+      } else {
+        console.warn('No active call to end');
+      }
+    } catch (error) {
+      console.error('Error ending call:', error);
+      setCallStatus('Error ending call');
+    }
+  };
+
   const acceptCall = () => {
     if (incomingConnection) {
-      console.log('Accepting call...');
       incomingConnection.accept();
       setCallInProgress(true);
+      setCurrentConnection(incomingConnection);
       setIncomingConnection(null);
       setCallStatus('Call in progress');
     }
@@ -80,69 +140,57 @@ const TwilioWebRTC = () => {
 
   const rejectCall = () => {
     if (incomingConnection) {
-      console.log('Rejecting call...');
       incomingConnection.reject();
       setIncomingConnection(null);
       setCallStatus('Call rejected');
     }
   };
 
-  const makeCall = () => {
-    try {
-      if(device){
-        const phoneNumber = '+917439011473';
-
-        const response = axios.post('http://localhost:3000/call',{phoneNumber});
-        console.log(response);
-        setCallInProgress(true);
-        setCallStatus('Calling...');
-      }else{
-        console.warn('Device not initialized');
-        setCallStatus('Device not ready');
-      }
-    } catch (error) {
-      console.error('Error making call',error);
-      setCallStatus('Error making call');
+  const muteCall = () => {
+    if (currentConnection) {
+      currentConnection.mute(true);
+      setIsMuted(true);
+      setCallStatus('Call muted');
     }
-  }
+  };
 
-  const endCall = () => {
-    if (device) {
-      console.log('Ending call...');
-      const response = device.disconnectAll();
-      console.log(response);
-      setCallInProgress(false);
-      setCallStatus('Call ended');
-    } else {
-      console.warn('No active call to end');
+  const resumeCall = () => {
+    if (currentConnection) {
+      currentConnection.mute(false);
+      setIsMuted(false);
+      setCallStatus('Call resumed');
     }
   };
 
   return (
     <div>
       <h1>Twilio WebRTC Client</h1>
-      
-      {/* Display call status */}
       <p>Status: {callStatus}</p>
 
-      {/* Incoming Call UI */}
       {incomingConnection && (
-        <IncomingCall 
-          connection={incomingConnection}
-          onAccept={acceptCall}
-          onReject={rejectCall}
-        />
+        <div>
+          <p>Incoming Call SID: {incomingConnection.parameters.CallSid}</p>
+          <IncomingCall
+            connection={incomingConnection}
+            onAccept={acceptCall}
+            onReject={rejectCall}
+          />
+        </div>
       )}
 
-      {/* Ongoing Call UI */}
-      {callInProgress && !incomingConnection ? (
-        <OutgoingCall 
-          onEndCall={endCall}
-        />
-      ) : (
-        !incomingConnection && !callInProgress && (
-          <button onClick={makeCall}>Start Call</button>
-        )
+      {!incomingConnection && !callInProgress && (
+        <Dialpad onCall={makeCall} /> 
+      )}
+
+      {callInProgress && !incomingConnection && (
+        <div>
+          <OutgoingCall onEndCall={endCall} />
+          {isMuted ? (
+            <button onClick={resumeCall}>Resume Call</button>
+          ) : (
+            <button onClick={muteCall}>Mute Call</button>
+          )}
+        </div>
       )}
     </div>
   );
